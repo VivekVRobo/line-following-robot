@@ -9,10 +9,11 @@
 - saturation-preserving motor mixer
 - safe-stop serial command interface
 - deterministic simulator
+- 20-scenario simulation regression gate
 - sensor calibration CLI
 - telemetry analysis CLI
 - expanded native/Python tests and CI
-- benchmark, safety, calibration and troubleshooting documentation
+- benchmark, simulation, safety, calibration and troubleshooting documentation
 
 ### Changed
 - PID includes conditional-integration anti-windup and output limiting

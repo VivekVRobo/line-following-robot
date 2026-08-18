@@ -12,7 +12,7 @@ from pathlib import Path
 class SimConfig:
     dt:float=0.01; seconds:float=20.0; wheelbase_m:float=0.12; max_speed_mps:float=0.60
     max_pwm:int=220; sensor_half_width_m:float=0.035; track_amplitude_m:float=0.05
-    track_wavelength_m:float=1.2; noise_std_position:float=18.0; seed:int=7
+    track_wavelength_m:float=1.2; noise_std_position:float=18.0; initial_offset_m:float=0.02; seed:int=7
 
 class PID:
     def __init__(self,kp=.085,ki=.0008,kd=.30,output_limit=190.):
@@ -39,7 +39,7 @@ def mix(base,correction,max_pwm):
     return round(left),round(right)
 
 def simulate(c:SimConfig):
-    random.seed(c.seed); pid=PID(); x,y,heading=0.,.02,0.; rows=[]; recovering=False; last_direction=1; recovery_started=0.
+    random.seed(c.seed); pid=PID(); x,y,heading=0.,c.initial_offset_m,0.; rows=[]; recovering=False; last_direction=1; recovery_started=0.
     for step in range(int(c.seconds/c.dt)):
         t=step*c.dt; lateral=y-track_y(x,c); visible=abs(lateral)<=c.sensor_half_width_m
         raw_position=(lateral/c.sensor_half_width_m)*2000.; position=raw_position+random.gauss(0,c.noise_std_position)

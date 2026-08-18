@@ -17,7 +17,7 @@ jobs:
         run: pio run -e uno
       - name: Run native control tests
         run: pio test -e native
-  python-tooling:
+  python-tooling-and-regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -29,3 +29,5 @@ jobs:
       - run: python tools/simulate.py --seconds 0.5 --output /tmp/sim.csv --summary /tmp/sim.json
       - run: python tools/calibrate_sensors.py examples/sample_calibration.csv
       - run: python tools/analyze_telemetry.py examples/sample_telemetry.log --markdown
+      - name: Run 20-scenario simulation regression gate
+        run: python tools/regression_suite.py --seconds 8 --output /tmp/regression.json
