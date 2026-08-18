@@ -1,24 +1,31 @@
 # Architecture
 
-```mermaid
-flowchart LR
-    S[5 IR sensors] --> N[Normalize readings]
-    N --> W[Weighted position estimator]
-    W --> P[PID controller]
-    P --> M[Differential motor mixer]
-    M --> D[Motor driver]
-    D --> R[Left/right DC motors]
-    W --> L{Line visible?}
-    L -- no --> X[Lost-line recovery]
-    X --> M
-```
+## Design goals
 
-The design deliberately separates the pure PID controller (`include/control.h`) from Arduino I/O (`src/main.cpp`). This keeps the core control behavior host-testable while the firmware remains small and readable.
+The project separates hardware I/O from deterministic control logic so most behavior can be tested on a desktop without an Arduino attached.
 
-## Timing
+## Runtime pipeline
 
-The control loop runs at a fixed target period from `cfg::LOOP_PERIOD_MS`. PID calculations use measured elapsed time rather than assuming the loop is perfectly periodic.
+1. `readSensors()` acquires five ADC channels.
+2. `LineEstimator` normalizes each sensor independently and returns position, confidence and visibility.
+3. If visible, `AdaptiveSpeedPlanner` selects base speed and `PIDController` calculates steering correction.
+4. `mixDifferential()` scales the left/right pair together if either side exceeds the PWM limit.
+5. If not visible, `RecoveryPlanner` overrides tracking with a staged search manoeuvre.
+6. Motor commands are applied through the hardware-specific `drive()` layer.
+7. Throttled telemetry publishes control state for offline analysis.
 
-## Failure behavior
+## Module boundary
 
-If summed sensor strength falls below the visibility threshold, the PID state is reset and the robot rotates toward the most recently observed line direction. This prevents integral windup while the line is absent.
+| Module | Hardware independent | Native tested |
+|---|---:|---:|
+| PIDController | yes | yes |
+| LineEstimator | yes | yes |
+| AdaptiveSpeedPlanner | yes | yes |
+| motor mixer | yes | yes |
+| RecoveryPlanner | yes | yes |
+| command parser | yes | yes |
+| ADC/GPIO/PWM I/O | no | target build |
+
+## Safety state
+
+Firmware boots with `runEnabled = false`; motor PWM remains zero until `START`. `STOP` disables motion, clears PID/recovery state and commands both motors to zero. This software layer is not a substitute for a physical power disconnect.
