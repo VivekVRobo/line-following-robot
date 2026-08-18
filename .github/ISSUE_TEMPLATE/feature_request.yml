@@ -1,0 +1,16 @@
+name: Feature request
+description: Propose a measurable improvement to the control stack or tooling.
+title: "[feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Goal
+      description: What capability or measurable outcome should improve?
+    validations: {required: true}
+  - type: textarea
+    attributes: {label: Proposed approach}
+  - type: textarea
+    attributes:
+      label: Validation plan
+      description: How should the change be tested in native tests, simulation, or hardware?

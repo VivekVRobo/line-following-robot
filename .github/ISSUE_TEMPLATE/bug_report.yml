@@ -1,0 +1,21 @@
+name: Bug report
+description: Report reproducible firmware, control, tooling, or documentation behavior.
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What happened and what did you expect?
+    validations: {required: true}
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Include commands, logs, telemetry, track conditions, and hardware configuration when relevant.
+    validations: {required: true}
+  - type: input
+    attributes: {label: Commit SHA}
+  - type: textarea
+    attributes:
+      label: Safety impact
+      description: Could this behavior cause unexpected motor motion or hardware damage?

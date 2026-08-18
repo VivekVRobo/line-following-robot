@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  firmware-and-native-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
+      - name: Build Arduino Uno firmware
+        run: pio run -e uno
+      - name: Run native control tests
+        run: pio test -e native
+  python-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q tools
+      - run: python -m unittest discover -s tools/tests -v
+      - run: python tools/simulate.py --seconds 0.5 --output /tmp/sim.csv --summary /tmp/sim.json
+      - run: python tools/calibrate_sensors.py examples/sample_calibration.csv
+      - run: python tools/analyze_telemetry.py examples/sample_telemetry.log --markdown
