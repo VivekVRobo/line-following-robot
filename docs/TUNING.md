@@ -1,31 +1,29 @@
-# PID & Sensor Tuning Guide
+# PID and Sensor Tuning
 
-## 1. Validate sensors
+## 1. Sensor calibration
 
-Open the serial monitor and move the array across the track. Confirm the line produces a clearly different reading from the floor on every channel. Update `SENSOR_MIN`, `SENSOR_MAX`, and `SENSOR_DARK_LINE` to match your hardware.
+Open the serial monitor and temporarily print raw `analogRead()` values if necessary. Record minimum and maximum values over both floor and line. Update `SENSOR_MIN`, `SENSOR_MAX`, `DARK_LINE`, and `MIN_TOTAL_STRENGTH` in `include/config.h`.
 
-## 2. Validate motors
+## 2. Motor sanity check
 
-Lift the wheels from the table and confirm a positive command rotates both wheels forward. Swap motor leads or invert direction logic if needed.
+With wheels lifted, verify positive commands move both wheels forward. Fix direction before tuning PID.
 
-## 3. Tune steering
+## 3. Tune proportional gain
 
-Use a low `BASE_SPEED` first.
+Set `KI = 0` and `KD = 0`. Increase `KP` until the robot follows the line but begins to oscillate around it. Reduce slightly.
 
-1. Set `KI = 0` and `KD = 0`.
-2. Increase `KP` until the robot follows the line but oscillates noticeably.
-3. Increase `KD` until oscillation settles and corners remain responsive.
-4. Add only a tiny `KI` if a persistent bias remains on long straight sections.
-5. Increase `BASE_SPEED` gradually and repeat the process.
+## 4. Add derivative damping
 
-## 4. Diagnose behavior
+Increase `KD` gradually until oscillation and corner overshoot decrease. Excessive derivative gain makes the robot noisy and sensitive to sensor jitter.
 
-| Symptom | Likely adjustment |
-|---|---|
-| Slow response / leaves corners | Increase `KP` |
-| Rapid left-right oscillation | Reduce `KP` or increase `KD` |
-| Twitchy response to noisy sensors | Increase derivative filtering or improve sensor calibration |
-| Slowly drifts to one side | Check mechanics first; then consider tiny `KI` |
-| Spins the wrong way when line is lost | Reverse `lastDirection` behavior or motor orientation |
+## 5. Add integral only if required
 
-Record final gains, track type, battery voltage, wheel diameter, and sensor height with test results so the repository reflects the actual robot configuration.
+Use a very small `KI` only if the robot shows a persistent one-sided bias that cannot be fixed mechanically. Integral is clamped to limit windup.
+
+## 6. Increase speed
+
+Raise `BASE_SPEED` in small steps and repeat the tuning process. Gains that work at low speed may not work at high speed.
+
+## What to record
+
+For credible project results, record track shape, battery voltage, motor/gearbox model, loop period, PID gains, lap time, failure count, and at least one telemetry trace. Do not claim benchmark performance until it has been measured on hardware.

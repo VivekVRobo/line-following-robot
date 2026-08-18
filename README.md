@@ -1,80 +1,118 @@
 # Line Following Robot
 
-A configurable Arduino line-following robot reference implementation with weighted sensor error, PID steering, motor mixing, lost-line recovery, and a practical tuning workflow.
+[![PlatformIO CI](https://github.com/vasu4990/line-following-robot/actions/workflows/platformio.yml/badge.svg)](https://github.com/vasu4990/line-following-robot/actions/workflows/platformio.yml)
 
-> **Project status:** reference implementation ready for hardware integration. Pin assignments, sensor polarity, motor direction, and PID gains must be calibrated for the actual robot.
+A production-style Arduino reference implementation for a differential-drive line-following robot. The controller combines a five-sensor weighted line estimator, PID steering, motor mixing, lost-line recovery, and serial telemetry.
 
-## Highlights
+> **Status:** software/reference design complete; physical calibration and track validation must be performed on the target robot.
 
-- 5-sensor weighted line position estimator
-- PID steering with integral clamping and derivative filtering
-- Differential-drive motor mixer
+## Features
+
+- 5-channel analog reflectance sensor support
+- Weighted line-position estimation
+- PID steering with derivative filtering and integral clamping
+- Differential-drive motor mixing
 - Lost-line recovery using the last known direction
-- Serial telemetry for tuning
-- PlatformIO project for reproducible builds
+- Configurable black-line / white-line sensing
+- Serial telemetry for tuning and diagnostics
+- PlatformIO builds for Arduino Uno and native unit tests
+- GitHub Actions CI
 
-## Suggested hardware
+## Repository layout
 
-- Arduino Uno/Nano compatible board
-- 5-channel IR reflectance sensor array
-- TB6612FNG or compatible dual H-bridge
-- 2 geared DC motors + wheels
-- Separate motor supply with a common ground
+```text
+.
+├── .github/workflows/platformio.yml
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── HARDWARE.md
+│   └── TUNING.md
+├── include/
+│   ├── config.h
+│   └── control.h
+├── src/main.cpp
+├── test/test_control/test_main.cpp
+├── platformio.ini
+└── README.md
+```
 
-## Default pin map
+## Hardware reference
+
+The default configuration targets an Arduino Uno/Nano-class board, a 5-channel analog IR sensor array, a TB6612FNG/L298N-style dual motor driver, and two geared DC motors. See [`docs/HARDWARE.md`](docs/HARDWARE.md) before wiring.
+
+### Default pin map
 
 | Function | Pin |
 |---|---:|
 | Sensors left → right | A0, A1, A2, A3, A4 |
 | Left motor PWM | 5 |
-| Left motor direction | 7, 8 |
+| Left direction | 7, 8 |
 | Right motor PWM | 6 |
-| Right motor direction | 9, 10 |
+| Right direction | 9, 10 |
 
-## Build
+## Build and upload
+
+Install [PlatformIO](https://platformio.org/) and run:
 
 ```bash
-pio run
-pio run -t upload
+pio run -e uno
+pio run -e uno -t upload
 pio device monitor -b 115200
 ```
 
-## Control loop
+Run host-side unit tests:
 
-The five sensors are converted to line strengths and assigned positions `-2000, -1000, 0, 1000, 2000`. Their weighted average estimates lateral line error. A PID controller calculates a steering correction and the motor mixer applies:
-
-```text
-left  = baseSpeed + correction
-right = baseSpeed - correction
+```bash
+pio test -e native
 ```
 
-When the line disappears, the robot rotates toward the last observed line direction instead of continuing blindly.
+## Calibration
 
-## Calibration checklist
+All hardware-dependent values are centralized in [`include/config.h`](include/config.h). Before driving on a track:
 
-1. Confirm all sensor values increase (or decrease) consistently over the line.
-2. Set `SENSOR_DARK_LINE` in `src/main.cpp` for black-line vs white-line operation.
-3. Measure floor and line readings and adjust `SENSOR_MIN` / `SENSOR_MAX`.
-4. Verify each motor's forward direction.
-5. Start with `KI = 0`, tune `KP`, then `KD`, and add a very small `KI` only if necessary.
-6. Raise `BASE_SPEED` after stable tracking is achieved.
+1. Verify motor direction with the wheels lifted.
+2. Measure raw sensor values over the floor and line.
+3. Update sensor min/max calibration values.
+4. Select dark-line or light-line mode.
+5. Tune `KP`, then `KD`, and only then add a small `KI` if needed.
+6. Increase base speed only after stable tracking.
 
-See [`docs/TUNING.md`](docs/TUNING.md) for a structured tuning procedure.
+See [`docs/TUNING.md`](docs/TUNING.md) for the tuning procedure.
+
+## Control model
+
+Each sensor is mapped to a normalized strength and assigned a lateral coordinate. The weighted average estimates line position. The PID output becomes a steering correction:
+
+```text
+leftPWM  = baseSpeed + correction
+rightPWM = baseSpeed - correction
+```
+
+If no sensor sees the line, the robot performs a controlled search toward the last known line direction.
 
 ## Safety
 
-Test with the wheels lifted first. Do not power motors from the microcontroller's 5 V pin. Use a suitable motor supply and common ground.
+- Never power DC motors from the Arduino 5 V pin.
+- Use a motor supply appropriate for the motors and driver.
+- Connect controller and motor-driver grounds together.
+- Test direction and emergency stop behavior with wheels off the ground first.
+- Treat the default gains and thresholds as starting values, not verified hardware values.
 
 ## Roadmap
 
-- [x] Weighted 5-sensor position estimation
-- [x] PID controller
+- [x] Five-sensor weighted estimator
+- [x] PID control
 - [x] Lost-line recovery
-- [x] Serial telemetry
-- [ ] Hardware calibration values
-- [ ] Track test results / plots
-- [ ] Optional encoder-based speed regulation
+- [x] Host-side controller tests
+- [x] CI build/test workflow
+- [ ] Robot-specific sensor calibration
+- [ ] Track benchmark data
+- [ ] Optional wheel-encoder speed loop
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-MIT-style usage is intended; add a formal license file before redistribution if required.
+MIT — see [`LICENSE`](LICENSE).

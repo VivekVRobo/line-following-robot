@@ -1,97 +1,92 @@
 #include <Arduino.h>
+#include "config.h"
+#include "control.h"
 
-constexpr uint8_t SENSOR_PINS[5] = {A0, A1, A2, A3, A4};
-constexpr int16_t SENSOR_POSITIONS[5] = {-2000, -1000, 0, 1000, 2000};
-constexpr bool SENSOR_DARK_LINE = true;
-constexpr int SENSOR_MIN = 100;
-constexpr int SENSOR_MAX = 900;
-
-constexpr uint8_t L_PWM = 5, L_IN1 = 7, L_IN2 = 8;
-constexpr uint8_t R_PWM = 6, R_IN1 = 9, R_IN2 = 10;
-
-float KP = 0.070f;
-float KI = 0.00002f;
-float KD = 0.42f;
-int BASE_SPEED = 125;
-constexpr int MAX_SPEED = 220;
-constexpr uint16_t LOOP_MS = 8;
-
-float integral = 0.0f;
-float previousError = 0.0f;
-float filteredDerivative = 0.0f;
+PIDController pid({cfg::KP, cfg::KI, cfg::KD, cfg::INTEGRAL_LIMIT, cfg::DERIVATIVE_ALPHA});
 int lastDirection = 1;
-unsigned long previousTime = 0;
+uint32_t lastLoopMs = 0;
 
-void driveMotor(uint8_t pwm, uint8_t in1, uint8_t in2, int speed) {
-  speed = constrain(speed, -255, 255);
-  digitalWrite(in1, speed >= 0 ? HIGH : LOW);
-  digitalWrite(in2, speed >= 0 ? LOW : HIGH);
-  analogWrite(pwm, abs(speed));
+struct LineSample {
+  int position;
+  int totalStrength;
+  bool visible;
+};
+
+int normalizeSensor(int raw) {
+  const int constrainedRaw = constrain(raw, cfg::SENSOR_MIN, cfg::SENSOR_MAX);
+  long normalized = map(constrainedRaw, cfg::SENSOR_MIN, cfg::SENSOR_MAX, 0, 1000);
+  if (!cfg::DARK_LINE) normalized = 1000 - normalized;
+  return constrain(static_cast<int>(normalized), 0, 1000);
 }
 
-void setDrive(int left, int right) {
-  driveMotor(L_PWM, L_IN1, L_IN2, left);
-  driveMotor(R_PWM, R_IN1, R_IN2, right);
-}
-
-int normalizedStrength(int raw) {
-  raw = constrain(raw, SENSOR_MIN, SENSOR_MAX);
-  int scaled = map(raw, SENSOR_MIN, SENSOR_MAX, 0, 1000);
-  return SENSOR_DARK_LINE ? scaled : 1000 - scaled;
-}
-
-bool readLine(float &error, int &confidence) {
+LineSample readLine() {
   long weighted = 0;
   long total = 0;
-  for (uint8_t i = 0; i < 5; ++i) {
-    int strength = normalizedStrength(analogRead(SENSOR_PINS[i]));
-    weighted += static_cast<long>(strength) * SENSOR_POSITIONS[i];
+
+  for (uint8_t i = 0; i < cfg::SENSOR_COUNT; ++i) {
+    const int strength = normalizeSensor(analogRead(cfg::SENSOR_PINS[i]));
+    weighted += static_cast<long>(strength) * cfg::SENSOR_POSITION[i];
     total += strength;
   }
-  confidence = total / 5;
-  if (total < 350) return false;
-  error = static_cast<float>(weighted) / static_cast<float>(total);
-  if (error > 100) lastDirection = 1;
-  if (error < -100) lastDirection = -1;
-  return true;
+
+  if (total < cfg::MIN_TOTAL_STRENGTH) return {0, static_cast<int>(total), false};
+  return {static_cast<int>(weighted / total), static_cast<int>(total), true};
+}
+
+void driveOne(uint8_t pwmPin, uint8_t in1, uint8_t in2, int command) {
+  command = clampPwm(command, cfg::MAX_SPEED);
+  const bool forward = command >= 0;
+  digitalWrite(in1, forward ? HIGH : LOW);
+  digitalWrite(in2, forward ? LOW : HIGH);
+  analogWrite(pwmPin, abs(command));
+}
+
+void drive(int left, int right) {
+  driveOne(cfg::LEFT_PWM, cfg::LEFT_IN1, cfg::LEFT_IN2, left);
+  driveOne(cfg::RIGHT_PWM, cfg::RIGHT_IN1, cfg::RIGHT_IN2, right);
+}
+
+void searchForLine() {
+  pid.reset();
+  if (lastDirection >= 0) drive(cfg::SEARCH_SPEED, -cfg::SEARCH_SPEED);
+  else drive(-cfg::SEARCH_SPEED, cfg::SEARCH_SPEED);
 }
 
 void setup() {
-  Serial.begin(115200);
-  pinMode(L_PWM, OUTPUT); pinMode(L_IN1, OUTPUT); pinMode(L_IN2, OUTPUT);
-  pinMode(R_PWM, OUTPUT); pinMode(R_IN1, OUTPUT); pinMode(R_IN2, OUTPUT);
-  previousTime = millis();
+  Serial.begin(cfg::SERIAL_BAUD);
+  for (uint8_t pin : {cfg::LEFT_PWM, cfg::LEFT_IN1, cfg::LEFT_IN2,
+                      cfg::RIGHT_PWM, cfg::RIGHT_IN1, cfg::RIGHT_IN2}) {
+    pinMode(pin, OUTPUT);
+  }
+  lastLoopMs = millis();
+  Serial.println(F("line-follower ready"));
 }
 
 void loop() {
-  unsigned long now = millis();
-  if (now - previousTime < LOOP_MS) return;
-  float dt = (now - previousTime) / 1000.0f;
-  previousTime = now;
+  const uint32_t now = millis();
+  if (now - lastLoopMs < cfg::LOOP_PERIOD_MS) return;
+  const float dt = (now - lastLoopMs) / 1000.0f;
+  lastLoopMs = now;
 
-  float error = 0.0f;
-  int confidence = 0;
-  bool lineSeen = readLine(error, confidence);
-
-  if (!lineSeen) {
-    integral = 0.0f;
-    setDrive(lastDirection > 0 ? 110 : -110, lastDirection > 0 ? -110 : 110);
-    Serial.println("lost-line");
+  const LineSample line = readLine();
+  if (!line.visible) {
+    searchForLine();
+    Serial.println(F("lost-line"));
     return;
   }
 
-  integral = constrain(integral + error * dt, -2500.0f, 2500.0f);
-  float derivative = (error - previousError) / max(dt, 0.001f);
-  filteredDerivative = 0.75f * filteredDerivative + 0.25f * derivative;
-  previousError = error;
+  const float error = static_cast<float>(line.position);
+  if (error > 80) lastDirection = 1;
+  else if (error < -80) lastDirection = -1;
 
-  float correction = KP * error + KI * integral + KD * filteredDerivative;
-  int left = constrain(static_cast<int>(BASE_SPEED + correction), -MAX_SPEED, MAX_SPEED);
-  int right = constrain(static_cast<int>(BASE_SPEED - correction), -MAX_SPEED, MAX_SPEED);
-  setDrive(left, right);
+  const int correction = static_cast<int>(pid.update(error, dt));
+  const int left = clampPwm(cfg::BASE_SPEED + correction, cfg::MAX_SPEED);
+  const int right = clampPwm(cfg::BASE_SPEED - correction, cfg::MAX_SPEED);
+  drive(left, right);
 
-  Serial.print("error="); Serial.print(error, 1);
-  Serial.print(",confidence="); Serial.print(confidence);
-  Serial.print(",left="); Serial.print(left);
-  Serial.print(",right="); Serial.println(right);
+  Serial.print(F("pos=")); Serial.print(line.position);
+  Serial.print(F(",strength=")); Serial.print(line.totalStrength);
+  Serial.print(F(",corr=")); Serial.print(correction);
+  Serial.print(F(",left=")); Serial.print(left);
+  Serial.print(F(",right=")); Serial.println(right);
 }
