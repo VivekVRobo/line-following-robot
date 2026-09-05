@@ -1,7 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
+#include "embedded_compat.h"
 
 struct MotorCommand {
   int left = 0;
@@ -12,7 +11,7 @@ struct MotorCommand {
 inline MotorCommand mixDifferential(float base, float correction, int maxAbs) {
   float left = base + correction;
   float right = base - correction;
-  const float peak = std::max(std::fabs(left), std::fabs(right));
+  const float peak = maxValue(absFloat(left), absFloat(right));
   bool saturated = false;
   if (peak > static_cast<float>(maxAbs) && peak > 0.0f) {
     const float scale = static_cast<float>(maxAbs) / peak;
@@ -20,5 +19,5 @@ inline MotorCommand mixDifferential(float base, float correction, int maxAbs) {
     right *= scale;
     saturated = true;
   }
-  return {static_cast<int>(std::lround(left)), static_cast<int>(std::lround(right)), saturated};
+  return {roundToInt(left), roundToInt(right), saturated};
 }
