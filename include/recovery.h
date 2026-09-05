@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include <stdint.h>
 
 struct RecoveryCommand { int left = 0; int right = 0; uint8_t phase = 0; };
 struct RecoveryConfig { int spinSpeed; int sweepSpeed; uint32_t initialSpinMs; uint32_t sweepPeriodMs; };
