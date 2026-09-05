@@ -12,10 +12,14 @@ struct PIDConfig {
 };
 
 struct PIDTerms {
-  float p = 0.0f;
-  float i = 0.0f;
-  float d = 0.0f;
-  float output = 0.0f;
+  float p;
+  float i;
+  float d;
+  float output;
+
+  PIDTerms() : p(0.0f), i(0.0f), d(0.0f), output(0.0f) {}
+  PIDTerms(float pValue, float iValue, float dValue, float outputValue)
+      : p(pValue), i(iValue), d(dValue), output(outputValue) {}
 };
 
 class PIDController {
@@ -45,7 +49,7 @@ class PIDController {
                                -cfg_.outputLimit, cfg_.outputLimit);
     previousError_ = error;
     initialized_ = true;
-    terms_ = {p, cfg_.ki * integral_, d, output};
+    terms_ = PIDTerms(p, cfg_.ki * integral_, d, output);
     return output;
   }
 
@@ -54,7 +58,7 @@ class PIDController {
     previousError_ = 0.0f;
     filteredDerivative_ = 0.0f;
     initialized_ = false;
-    terms_ = {};
+    terms_ = PIDTerms();
   }
 
   void setTunings(float kp, float ki, float kd) {
@@ -72,7 +76,7 @@ class PIDController {
   }
 
   PIDConfig cfg_;
-  PIDTerms terms_{};
+  PIDTerms terms_;
   float integral_ = 0.0f;
   float previousError_ = 0.0f;
   float filteredDerivative_ = 0.0f;
