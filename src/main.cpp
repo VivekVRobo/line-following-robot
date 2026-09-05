@@ -121,7 +121,8 @@ void loop() {
     pid.reset();
     const RecoveryCommand search = recovery.command(now);
     drive(search.left, search.right);
-    emitTelemetry(now, "RECOVER", line, 0.0f, 0.0f, 0, {search.left, search.right, false}, search.phase);
+    const MotorCommand recoveryMotors(search.left, search.right, false);
+    emitTelemetry(now, "RECOVER", line, 0.0f, 0.0f, 0, recoveryMotors, search.phase);
     return;
   }
 
