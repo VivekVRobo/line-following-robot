@@ -7,8 +7,8 @@ template <typename T, size_t N>
 struct FixedArray {
   T values[N];
 
-  constexpr T& operator[](size_t index) { return values[index]; }
-  constexpr const T& operator[](size_t index) const { return values[index]; }
+  T& operator[](size_t index) { return values[index]; }
+  const T& operator[](size_t index) const { return values[index]; }
 };
 
 template <typename T>
