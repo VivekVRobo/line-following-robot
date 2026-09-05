@@ -3,9 +3,13 @@
 #include "embedded_compat.h"
 
 struct MotorCommand {
-  int left = 0;
-  int right = 0;
-  bool saturated = false;
+  int left;
+  int right;
+  bool saturated;
+
+  MotorCommand() : left(0), right(0), saturated(false) {}
+  MotorCommand(int leftValue, int rightValue, bool saturatedValue)
+      : left(leftValue), right(rightValue), saturated(saturatedValue) {}
 };
 
 inline MotorCommand mixDifferential(float base, float correction, int maxAbs) {
@@ -19,5 +23,5 @@ inline MotorCommand mixDifferential(float base, float correction, int maxAbs) {
     right *= scale;
     saturated = true;
   }
-  return {roundToInt(left), roundToInt(right), saturated};
+  return MotorCommand(roundToInt(left), roundToInt(right), saturated);
 }
