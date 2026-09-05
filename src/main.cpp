@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <array>
 
 #include "command_parser.h"
 #include "config.h"
@@ -40,8 +39,8 @@ void drive(int left, int right) {
   driveOne(cfg::RIGHT_PWM, cfg::RIGHT_IN1, cfg::RIGHT_IN2, right, cfg::RIGHT_MOTOR_REVERSED);
 }
 
-std::array<int, LINE_SENSOR_COUNT> readSensors() {
-  std::array<int, LINE_SENSOR_COUNT> raw{};
+FixedArray<int, LINE_SENSOR_COUNT> readSensors() {
+  FixedArray<int, LINE_SENSOR_COUNT> raw{};
   for (uint8_t i = 0; i < cfg::SENSOR_COUNT; ++i) raw[i] = analogRead(cfg::SENSOR_PINS[i]);
   return raw;
 }
@@ -95,7 +94,12 @@ void emitTelemetry(uint32_t now, const char* mode, const LineEstimate& line, flo
 
 void setup() {
   Serial.begin(cfg::SERIAL_BAUD);
-  for (uint8_t pin : {cfg::LEFT_PWM, cfg::LEFT_IN1, cfg::LEFT_IN2, cfg::RIGHT_PWM, cfg::RIGHT_IN1, cfg::RIGHT_IN2}) pinMode(pin, OUTPUT);
+  const uint8_t motorPins[] = {
+      cfg::LEFT_PWM, cfg::LEFT_IN1, cfg::LEFT_IN2,
+      cfg::RIGHT_PWM, cfg::RIGHT_IN1, cfg::RIGHT_IN2};
+  for (size_t i = 0; i < sizeof(motorPins) / sizeof(motorPins[0]); ++i) {
+    pinMode(motorPins[i], OUTPUT);
+  }
   drive(0, 0);
   lastLoopMs = millis();
   Serial.println(F("line-follower,v2,SAFE-STOP"));
