@@ -1,7 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
+#include "embedded_compat.h"
 
 struct PIDConfig {
   float kp;
@@ -38,7 +37,7 @@ class PIDController {
     const float candidate = p + cfg_.ki * candidateIntegral + d;
     const float limitedCandidate = clamp(candidate, -cfg_.outputLimit, cfg_.outputLimit);
 
-    const bool saturated = std::fabs(candidate - limitedCandidate) > 1e-6f;
+    const bool saturated = absFloat(candidate - limitedCandidate) > 1e-6f;
     const bool drivesFurtherIntoSaturation = (candidate * error) > 0.0f;
     if (!(saturated && drivesFurtherIntoSaturation)) integral_ = candidateIntegral;
 
@@ -69,7 +68,7 @@ class PIDController {
 
  private:
   static float clamp(float value, float low, float high) {
-    return std::max(low, std::min(high, value));
+    return clampValue(value, low, high);
   }
 
   PIDConfig cfg_;
