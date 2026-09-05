@@ -1,14 +1,15 @@
 #pragma once
 
-#include <cctype>
+#include <ctype.h>
 
 enum class CommandType { None, Start, Stop, TelemetryOn, TelemetryOff, Status, Help, Unknown };
 
 inline bool equalsIgnoreCase(const char* a, const char* b) {
   while (*a && *b) {
-    if (std::tolower(static_cast<unsigned char>(*a)) !=
-        std::tolower(static_cast<unsigned char>(*b))) return false;
-    ++a; ++b;
+    if (tolower(static_cast<unsigned char>(*a)) !=
+        tolower(static_cast<unsigned char>(*b))) return false;
+    ++a;
+    ++b;
   }
   return *a == '\0' && *b == '\0';
 }
