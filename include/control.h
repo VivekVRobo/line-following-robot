@@ -1,7 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
+#include "embedded_compat.h"
 
 struct PIDConfig {
   float kp;
@@ -13,10 +12,14 @@ struct PIDConfig {
 };
 
 struct PIDTerms {
-  float p = 0.0f;
-  float i = 0.0f;
-  float d = 0.0f;
-  float output = 0.0f;
+  float p;
+  float i;
+  float d;
+  float output;
+
+  PIDTerms() : p(0.0f), i(0.0f), d(0.0f), output(0.0f) {}
+  PIDTerms(float pValue, float iValue, float dValue, float outputValue)
+      : p(pValue), i(iValue), d(dValue), output(outputValue) {}
 };
 
 class PIDController {
@@ -38,7 +41,7 @@ class PIDController {
     const float candidate = p + cfg_.ki * candidateIntegral + d;
     const float limitedCandidate = clamp(candidate, -cfg_.outputLimit, cfg_.outputLimit);
 
-    const bool saturated = std::fabs(candidate - limitedCandidate) > 1e-6f;
+    const bool saturated = absFloat(candidate - limitedCandidate) > 1e-6f;
     const bool drivesFurtherIntoSaturation = (candidate * error) > 0.0f;
     if (!(saturated && drivesFurtherIntoSaturation)) integral_ = candidateIntegral;
 
@@ -46,7 +49,7 @@ class PIDController {
                                -cfg_.outputLimit, cfg_.outputLimit);
     previousError_ = error;
     initialized_ = true;
-    terms_ = {p, cfg_.ki * integral_, d, output};
+    terms_ = PIDTerms(p, cfg_.ki * integral_, d, output);
     return output;
   }
 
@@ -55,7 +58,7 @@ class PIDController {
     previousError_ = 0.0f;
     filteredDerivative_ = 0.0f;
     initialized_ = false;
-    terms_ = {};
+    terms_ = PIDTerms();
   }
 
   void setTunings(float kp, float ki, float kd) {
@@ -69,11 +72,11 @@ class PIDController {
 
  private:
   static float clamp(float value, float low, float high) {
-    return std::max(low, std::min(high, value));
+    return clampValue(value, low, high);
   }
 
   PIDConfig cfg_;
-  PIDTerms terms_{};
+  PIDTerms terms_;
   float integral_ = 0.0f;
   float previousError_ = 0.0f;
   float filteredDerivative_ = 0.0f;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <array>
+#include "embedded_compat.h"
 
 namespace cfg {
 constexpr uint32_t SERIAL_BAUD = 115200;
@@ -10,11 +10,11 @@ constexpr uint16_t TELEMETRY_PERIOD_MS = 50;
 
 constexpr uint8_t SENSOR_COUNT = 5;
 constexpr uint8_t SENSOR_PINS[SENSOR_COUNT] = {A0, A1, A2, A3, A4};
-constexpr std::array<int, SENSOR_COUNT> SENSOR_POSITION = {-2000, -1000, 0, 1000, 2000};
+constexpr FixedArray<int, SENSOR_COUNT> SENSOR_POSITION = {-2000, -1000, 0, 1000, 2000};
 
 // Replace these values with output from tools/calibrate_sensors.py.
-constexpr std::array<int, SENSOR_COUNT> SENSOR_MIN = {120, 120, 120, 120, 120};
-constexpr std::array<int, SENSOR_COUNT> SENSOR_MAX = {900, 900, 900, 900, 900};
+constexpr FixedArray<int, SENSOR_COUNT> SENSOR_MIN = {120, 120, 120, 120, 120};
+constexpr FixedArray<int, SENSOR_COUNT> SENSOR_MAX = {900, 900, 900, 900, 900};
 constexpr bool LINE_IS_HIGHER_RAW = true;
 constexpr int MIN_TOTAL_STRENGTH = 650;
 constexpr float MIN_CONFIDENCE = 0.16f;

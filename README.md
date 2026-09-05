@@ -1,6 +1,6 @@
 # Line Following Robot — Control Stack + Simulator
 
-[![CI](https://github.com/vasu4990/line-following-robot/actions/workflows/ci.yml/badge.svg)](https://github.com/vasu4990/line-following-robot/actions/workflows/ci.yml)
+[![CI](https://github.com/VivekVRobo/line-following-robot/actions/workflows/ci.yml/badge.svg)](https://github.com/VivekVRobo/line-following-robot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A portfolio-grade embedded robotics project for a five-sensor differential-drive line follower. The repository combines **testable C++ control modules, Arduino firmware, fail-safe serial control, objective telemetry, calibration tooling, and a lightweight simulator**.

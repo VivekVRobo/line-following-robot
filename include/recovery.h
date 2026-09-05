@@ -1,8 +1,17 @@
 #pragma once
 
-#include <cstdint>
+#include <stdint.h>
 
-struct RecoveryCommand { int left = 0; int right = 0; uint8_t phase = 0; };
+struct RecoveryCommand {
+  int left;
+  int right;
+  uint8_t phase;
+
+  RecoveryCommand() : left(0), right(0), phase(0) {}
+  RecoveryCommand(int leftValue, int rightValue, uint8_t phaseValue)
+      : left(leftValue), right(rightValue), phase(phaseValue) {}
+};
+
 struct RecoveryConfig { int spinSpeed; int sweepSpeed; uint32_t initialSpinMs; uint32_t sweepPeriodMs; };
 
 class RecoveryPlanner {
@@ -16,7 +25,7 @@ class RecoveryPlanner {
   void reset() { active_ = false; }
   bool active() const { return active_; }
   RecoveryCommand command(uint32_t nowMs) const {
-    if (!active_) return {};
+    if (!active_) return RecoveryCommand();
     const uint32_t elapsed = nowMs - startedMs_;
     if (elapsed < cfg_.initialSpinMs) return spin(preferredDirection_, cfg_.spinSpeed, 1);
     const uint32_t sweepElapsed = elapsed - cfg_.initialSpinMs;
@@ -26,8 +35,8 @@ class RecoveryPlanner {
   }
  private:
   static RecoveryCommand spin(int direction, int speed, uint8_t phase) {
-    return direction >= 0 ? RecoveryCommand{speed, -speed, phase}
-                          : RecoveryCommand{-speed, speed, phase};
+    return direction >= 0 ? RecoveryCommand(speed, -speed, phase)
+                          : RecoveryCommand(-speed, speed, phase);
   }
   RecoveryConfig cfg_;
   bool active_ = false;
