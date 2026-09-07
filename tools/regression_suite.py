@@ -1,28 +1,96 @@
 #!/usr/bin/env python3
 """Multi-scenario regression gate for the reference simulator.
 
-Thresholds detect simulator regressions only; they are not physical robot guarantees.
+Thresholds detect regressions of the deterministic simulator/controller model
+only; they are not physical robot guarantees or PID tuning targets.
 """
 from __future__ import annotations
-import argparse,json
-from dataclasses import dataclass
+
+import argparse
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
 import simulate
-@dataclass
+
+
+@dataclass(frozen=True)
 class Gate:
-    max_mean_rms_m:float=.012; max_worst_rms_m:float=.020; max_mean_recovery_ratio:float=.08; min_mean_progress_m:float=1.5
-def scenarios(seconds=8.):
-    for seed in (1,7,19,41):
-        for offset in (-.025,-.012,0.,.012,.025): yield simulate.SimConfig(seconds=seconds,seed=seed,initial_offset_m=offset)
-def run(seconds=8.):
-    out=[]
-    for c in scenarios(seconds):
-        s=simulate.summarize(simulate.simulate(c));s['seed']=c.seed;s['initial_offset_m']=c.initial_offset_m;out.append(s)
-    return out
-def aggregate(r):
-    return {'scenario_count':len(r),'mean_rms_m':sum(x['rms_cross_track_m'] for x in r)/len(r),'worst_rms_m':max(x['rms_cross_track_m'] for x in r),'mean_recovery_ratio':sum(x['recovery_ratio'] for x in r)/len(r),'mean_progress_m':sum(x['distance_x_m'] for x in r)/len(r)}
-def evaluate(m,g=Gate()):
-    checks={'mean_rms':m['mean_rms_m']<=g.max_mean_rms_m,'worst_rms':m['worst_rms_m']<=g.max_worst_rms_m,'recovery_ratio':m['mean_recovery_ratio']<=g.max_mean_recovery_ratio,'progress':m['mean_progress_m']>=g.min_mean_progress_m};return all(checks.values()),checks
-def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--seconds',type=float,default=8.);p.add_argument('--output',type=Path,default=Path('artifacts/regression.json'));a=p.parse_args();r=run(a.seconds);m=aggregate(r);passed,checks=evaluate(m);payload={'passed':passed,'checks':checks,'aggregate':m,'scenarios':r};a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(payload,indent=2)+'\n');print(json.dumps({'passed':passed,'checks':checks,'aggregate':m},indent=2));raise SystemExit(0 if passed else 1)
-if __name__=='__main__':main()
+    # Version-2 regression envelopes were reset after correcting the simulated
+    # sensor location from robot-center sampling to a forward sensor bar.
+    max_mean_rms_m: float = 0.024
+    max_worst_rms_m: float = 0.028
+    max_mean_recovery_ratio: float = 0.08
+    min_mean_progress_m: float = 1.5
+
+
+def scenarios(seconds: float = 8.0):
+    for seed in (1, 7, 19, 41):
+        for offset in (-0.025, -0.012, 0.0, 0.012, 0.025):
+            yield simulate.SimConfig(seconds=seconds, seed=seed, initial_offset_m=offset)
+
+
+def run(seconds: float = 8.0) -> list[dict]:
+    output: list[dict] = []
+    for config in scenarios(seconds):
+        summary = simulate.summarize(simulate.simulate(config))
+        summary["seed"] = config.seed
+        summary["initial_offset_m"] = config.initial_offset_m
+        output.append(summary)
+    return output
+
+
+def aggregate(results: list[dict]) -> dict:
+    return {
+        "scenario_count": len(results),
+        "mean_rms_m": sum(item["rms_cross_track_m"] for item in results) / len(results),
+        "worst_rms_m": max(item["rms_cross_track_m"] for item in results),
+        "mean_recovery_ratio": sum(item["recovery_ratio"] for item in results) / len(results),
+        "mean_progress_m": sum(item["distance_x_m"] for item in results) / len(results),
+        "total_recovery_episodes": sum(item["recovery_episodes"] for item in results),
+        "worst_recovery_duration_s": max(item["max_recovery_duration_s"] for item in results),
+    }
+
+
+def evaluate(metrics: dict, gate: Gate = Gate()) -> tuple[bool, dict[str, bool]]:
+    checks = {
+        "mean_rms": metrics["mean_rms_m"] <= gate.max_mean_rms_m,
+        "worst_rms": metrics["worst_rms_m"] <= gate.max_worst_rms_m,
+        "recovery_ratio": metrics["mean_recovery_ratio"] <= gate.max_mean_recovery_ratio,
+        "progress": metrics["mean_progress_m"] >= gate.min_mean_progress_m,
+    }
+    return all(checks.values()), checks
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--seconds", type=float, default=8.0)
+    parser.add_argument("--output", type=Path, default=Path("artifacts/regression.json"))
+    args = parser.parse_args()
+
+    results = run(args.seconds)
+    metrics = aggregate(results)
+    passed, checks = evaluate(metrics)
+    payload = {
+        "schema_version": 2,
+        "simulator_model_version": simulate.SIMULATOR_MODEL_VERSION,
+        "evidence_type": "deterministic_simulation_regression",
+        "physical_evidence": False,
+        "physics_validated": False,
+        "claim_boundary": (
+            "Regression thresholds are internal software-model envelopes and are not measured track-performance limits."
+        ),
+        "passed": passed,
+        "gate": asdict(Gate()),
+        "checks": checks,
+        "aggregate": metrics,
+        "scenarios": results,
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({"passed": passed, "checks": checks, "aggregate": metrics}, indent=2))
+    raise SystemExit(0 if passed else 1)
+
+
+if __name__ == "__main__":
+    main()
