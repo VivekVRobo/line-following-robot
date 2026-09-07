@@ -25,8 +25,36 @@ jobs:
           python-version: '3.12'
       - run: python -m compileall -q tools
       - run: python -m unittest discover -s tools/tests -v
-      - run: python tools/simulate.py --seconds 0.5 --output /tmp/sim.csv --summary /tmp/sim.json
+      - name: Run deterministic simulator smoke
+        run: python tools/simulate.py --seconds 0.5 --output artifacts/simulation.csv --summary artifacts/simulation-summary.json
       - run: python tools/calibrate_sensors.py examples/sample_calibration.csv
       - run: python tools/analyze_telemetry.py examples/sample_telemetry.log --markdown
-      - name: Run 20-scenario simulation regression gate
-        run: python tools/regression_suite.py --seconds 8 --output /tmp/regression.json
+      - name: Run 20-scenario corrected-model regression gate
+        run: python tools/regression_suite.py --seconds 8 --output artifacts/regression.json
+      - name: Run 243-scenario software robustness characterization
+        run: python tools/robustness_sweep.py --seconds 2 --output artifacts/robustness-sweep.json
+      - name: Verify simulation claim boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          simulation = json.loads(Path('artifacts/simulation-summary.json').read_text())
+          regression = json.loads(Path('artifacts/regression.json').read_text())
+          robustness = json.loads(Path('artifacts/robustness-sweep.json').read_text())
+          assert simulation['simulator_model_version'] == 2
+          assert simulation['physical_evidence'] is False
+          assert simulation['physics_validated'] is False
+          assert regression['simulator_model_version'] == 2
+          assert regression['passed'] is True
+          assert regression['physical_evidence'] is False
+          assert robustness['scenario_count'] == 243
+          assert robustness['physical_evidence'] is False
+          assert robustness['physics_validated'] is False
+          print('simulation evidence boundaries: PASS')
+          PY
+      - name: Upload deterministic software evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: line-follower-software-evidence
+          path: artifacts/
+          if-no-files-found: error
