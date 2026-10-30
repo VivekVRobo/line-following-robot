@@ -1,5 +1,6 @@
 import math
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -52,6 +53,50 @@ class ToolTests(unittest.TestCase):
         self.assertTrue(polarity)
         self.assertTrue(all(hi > lo for lo, hi in zip(low, high)))
         self.assertTrue(all(value > 600 for value in separation))
+
+    def test_telemetry_loader_accepts_sample_log_and_ignores_preamble(self):
+        sample = Path(__file__).resolve().parents[2] / "examples" / "sample_telemetry.log"
+        rows = analyze_telemetry.load(sample)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(rows[0]["mode"], "TRACK")
+
+    def test_telemetry_loader_rejects_truncated_record_with_line_number(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "truncated.log"
+            path.write_text("serial banner\\nT,1000,TRACK\\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, r"truncated\\.log:2: expected 11 fields"):
+                analyze_telemetry.load(path)
+
+    def test_telemetry_loader_rejects_non_finite_numeric_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "non-finite.log"
+            path.write_text(
+                "T,1000,TRACK,0.0,0.8,100,nan,0.0,100,100,100,0\\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, r"field 'error' must be a finite number"):
+                analyze_telemetry.load(path)
+
+    def test_telemetry_loader_rejects_unknown_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unknown-mode.log"
+            path.write_text(
+                "T,1000,PAUSED,0.0,0.8,100,0.0,0.0,100,100,100,0\\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "unknown telemetry mode"):
+                analyze_telemetry.load(path)
+
+    def test_telemetry_loader_rejects_log_without_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "empty.log"
+            path.write_text("line-follower,v2,SAFE-STOP\\n# telemetry header\\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "no telemetry records found"):
+                analyze_telemetry.load(path)
+
+    def test_telemetry_metrics_rejects_empty_samples(self):
+        with self.assertRaisesRegex(ValueError, "refusing to report zero-valued metrics"):
+            analyze_telemetry.metrics([])
 
     def test_telemetry_metrics(self):
         rows = [
