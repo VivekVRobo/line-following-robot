@@ -63,15 +63,15 @@ class ToolTests(unittest.TestCase):
     def test_telemetry_loader_rejects_truncated_record_with_line_number(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "truncated.log"
-            path.write_text("serial banner\\nT,1000,TRACK\\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, r"truncated\\.log:2: expected 11 fields"):
+            path.write_text("serial banner\nT,1000,TRACK\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, r"truncated\.log:2: expected 11 fields"):
                 analyze_telemetry.load(path)
 
     def test_telemetry_loader_rejects_non_finite_numeric_value(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "non-finite.log"
             path.write_text(
-                "T,1000,TRACK,0.0,0.8,100,nan,0.0,100,100,100,0\\n",
+                "T,1000,TRACK,0.0,0.8,100,nan,0.0,100,100,100,0\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, r"field 'error' must be a finite number"):
@@ -81,7 +81,7 @@ class ToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unknown-mode.log"
             path.write_text(
-                "T,1000,PAUSED,0.0,0.8,100,0.0,0.0,100,100,100,0\\n",
+                "T,1000,PAUSED,0.0,0.8,100,0.0,0.0,100,100,100,0\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "unknown telemetry mode"):
@@ -90,7 +90,7 @@ class ToolTests(unittest.TestCase):
     def test_telemetry_loader_rejects_log_without_records(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "empty.log"
-            path.write_text("line-follower,v2,SAFE-STOP\\n# telemetry header\\n", encoding="utf-8")
+            path.write_text("line-follower,v2,SAFE-STOP\n# telemetry header\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "no telemetry records found"):
                 analyze_telemetry.load(path)
 
