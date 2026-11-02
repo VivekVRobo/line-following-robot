@@ -121,7 +121,11 @@ def _validate_config(config: SimConfig) -> None:
     )
     for field in finite_fields:
         value = getattr(config, field)
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
             raise ValueError(f"{field} must be a finite number")
 
     if isinstance(config.seed, bool) or not isinstance(config.seed, int):
@@ -134,10 +138,16 @@ def _validate_config(config: SimConfig) -> None:
         raise ValueError("wheelbase_m must be > 0")
     if config.max_speed_mps <= 0:
         raise ValueError("max_speed_mps must be > 0")
-    if isinstance(config.max_pwm, bool) or not isinstance(config.max_pwm, int) or config.max_pwm <= 0:
+    if (
+        isinstance(config.max_pwm, bool)
+        or not isinstance(config.max_pwm, int)
+        or config.max_pwm <= 0
+    ):
         raise ValueError("max_pwm must be a positive integer")
     if config.sensor_half_width_m <= 0 or config.sensor_forward_offset_m < 0:
-        raise ValueError("sensor_half_width_m must be > 0 and sensor_forward_offset_m must be >= 0")
+        raise ValueError(
+            "sensor_half_width_m must be > 0 and sensor_forward_offset_m must be >= 0"
+        )
     if config.track_amplitude_m < 0:
         raise ValueError("track_amplitude_m must be >= 0")
     if config.track_wavelength_m <= 0:
