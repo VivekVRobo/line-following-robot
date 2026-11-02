@@ -23,7 +23,10 @@ class ToolTests(unittest.TestCase):
             (simulate.SimConfig(wheelbase_m=0.0), "wheelbase_m must be > 0"),
             (simulate.SimConfig(track_wavelength_m=0.0), "track_wavelength_m must be > 0"),
             (simulate.SimConfig(max_pwm=0), "max_pwm must be a positive integer"),
-            (simulate.SimConfig(noise_std_position=-1.0), "noise_std_position must be >= 0"),
+            (
+                simulate.SimConfig(noise_std_position=-1.0),
+                "noise_std_position must be >= 0",
+            ),
             (simulate.SimConfig(seconds=float("nan")), "seconds must be a finite number"),
             (simulate.SimConfig(dt=float("inf")), "dt must be a finite number"),
             (
