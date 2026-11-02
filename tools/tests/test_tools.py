@@ -1,4 +1,5 @@
 import math
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -16,6 +17,39 @@ class ToolTests(unittest.TestCase):
     def test_simulator_is_deterministic(self):
         config = simulate.SimConfig(seconds=0.2, seed=123)
         self.assertEqual(simulate.simulate(config), simulate.simulate(config))
+
+    def test_simulator_rejects_invalid_configuration(self):
+        cases = [
+            (simulate.SimConfig(wheelbase_m=0.0), "wheelbase_m must be > 0"),
+            (simulate.SimConfig(track_wavelength_m=0.0), "track_wavelength_m must be > 0"),
+            (simulate.SimConfig(max_pwm=0), "max_pwm must be a positive integer"),
+            (
+                simulate.SimConfig(noise_std_position=-1.0),
+                "noise_std_position must be >= 0",
+            ),
+            (simulate.SimConfig(seconds=float("nan")), "seconds must be a finite number"),
+            (simulate.SimConfig(dt=float("inf")), "dt must be a finite number"),
+            (
+                simulate.SimConfig(seconds=0.001),
+                "seconds must be at least dt to produce at least one sample",
+            ),
+        ]
+        for config, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ValueError, message):
+                    simulate.simulate(config)
+
+    def test_simulator_cli_reports_invalid_duration_without_traceback(self):
+        script = Path(__file__).resolve().parents[1] / "simulate.py"
+        result = subprocess.run(
+            [sys.executable, str(script), "--seconds", "0.001"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("seconds must be at least dt", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_forward_sensor_offset_makes_heading_affect_line_sample(self):
         config = simulate.SimConfig(

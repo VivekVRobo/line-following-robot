@@ -105,11 +105,59 @@ def mix(base: float, correction: float, max_pwm: int) -> tuple[int, int]:
     return round(left), round(right)
 
 
-def simulate(config: SimConfig) -> list[dict]:
-    if config.dt <= 0 or config.seconds <= 0:
-        raise ValueError("dt and seconds must be > 0")
+def _validate_config(config: SimConfig) -> None:
+    """Reject invalid simulation parameters before they can corrupt or crash a run."""
+    finite_fields = (
+        "dt",
+        "seconds",
+        "wheelbase_m",
+        "max_speed_mps",
+        "sensor_half_width_m",
+        "sensor_forward_offset_m",
+        "track_amplitude_m",
+        "track_wavelength_m",
+        "noise_std_position",
+        "initial_offset_m",
+    )
+    for field in finite_fields:
+        value = getattr(config, field)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            raise ValueError(f"{field} must be a finite number")
+
+    if isinstance(config.seed, bool) or not isinstance(config.seed, int):
+        raise ValueError("seed must be an integer")
+    if config.dt <= 0:
+        raise ValueError("dt must be > 0")
+    if config.seconds < config.dt:
+        raise ValueError("seconds must be at least dt to produce at least one sample")
+    if config.wheelbase_m <= 0:
+        raise ValueError("wheelbase_m must be > 0")
+    if config.max_speed_mps <= 0:
+        raise ValueError("max_speed_mps must be > 0")
+    if (
+        isinstance(config.max_pwm, bool)
+        or not isinstance(config.max_pwm, int)
+        or config.max_pwm <= 0
+    ):
+        raise ValueError("max_pwm must be a positive integer")
     if config.sensor_half_width_m <= 0 or config.sensor_forward_offset_m < 0:
-        raise ValueError("sensor geometry must be non-negative with positive half width")
+        raise ValueError(
+            "sensor_half_width_m must be > 0 and sensor_forward_offset_m must be >= 0"
+        )
+    if config.track_amplitude_m < 0:
+        raise ValueError("track_amplitude_m must be >= 0")
+    if config.track_wavelength_m <= 0:
+        raise ValueError("track_wavelength_m must be > 0")
+    if config.noise_std_position < 0:
+        raise ValueError("noise_std_position must be >= 0")
+
+
+def simulate(config: SimConfig) -> list[dict]:
+    _validate_config(config)
 
     random.seed(config.seed)
     pid = PID()
@@ -259,7 +307,10 @@ def main() -> None:
     args = parser.parse_args()
 
     config = SimConfig(seconds=args.seconds, seed=args.seed)
-    rows = simulate(config)
+    try:
+        rows = simulate(config)
+    except ValueError as exc:
+        parser.error(str(exc))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
