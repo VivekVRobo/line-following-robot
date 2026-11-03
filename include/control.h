@@ -1,5 +1,7 @@
 #pragma once
 
+#include <math.h>
+
 #include "embedded_compat.h"
 
 struct PIDConfig {
@@ -27,7 +29,10 @@ class PIDController {
   explicit PIDController(PIDConfig cfg) : cfg_(cfg) {}
 
   float update(float error, float dtSeconds) {
-    if (dtSeconds <= 0.0f) return terms_.output;
+    // Reject invalid samples before they can poison controller state or output.
+    if (!isfinite(error) || !isfinite(dtSeconds) || dtSeconds <= 0.0f) {
+      return terms_.output;
+    }
 
     const float rawDerivative = initialized_ ? (error - previousError_) / dtSeconds : 0.0f;
     filteredDerivative_ = cfg_.derivativeAlpha * rawDerivative +
@@ -62,6 +67,8 @@ class PIDController {
   }
 
   void setTunings(float kp, float ki, float kd) {
+    // Keep the last known-good tuning set if any requested gain is invalid.
+    if (!isfinite(kp) || !isfinite(ki) || !isfinite(kd)) return;
     cfg_.kp = kp;
     cfg_.ki = ki;
     cfg_.kd = kd;
