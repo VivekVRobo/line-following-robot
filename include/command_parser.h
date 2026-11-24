@@ -15,12 +15,27 @@ inline bool equalsIgnoreCase(const char* a, const char* b) {
 }
 
 inline CommandType parseCommand(const char* line) {
-  if (!line || line[0] == '\0') return CommandType::None;
-  if (equalsIgnoreCase(line, "START")) return CommandType::Start;
-  if (equalsIgnoreCase(line, "STOP")) return CommandType::Stop;
-  if (equalsIgnoreCase(line, "TELEM ON")) return CommandType::TelemetryOn;
-  if (equalsIgnoreCase(line, "TELEM OFF")) return CommandType::TelemetryOff;
-  if (equalsIgnoreCase(line, "STATUS")) return CommandType::Status;
-  if (equalsIgnoreCase(line, "HELP")) return CommandType::Help;
+  if (!line) return CommandType::None;
+
+  while (*line && isspace(static_cast<unsigned char>(*line))) ++line;
+  if (*line == '\0') return CommandType::None;
+
+  const char* end = line;
+  while (*end) ++end;
+  while (end > line && isspace(static_cast<unsigned char>(end[-1]))) --end;
+
+  const size_t length = static_cast<size_t>(end - line);
+  if (length == 0) return CommandType::None;
+
+  char normalized[32] = {};
+  if (length >= sizeof(normalized)) return CommandType::Unknown;
+  for (size_t i = 0; i < length; ++i) normalized[i] = line[i];
+
+  if (equalsIgnoreCase(normalized, "START")) return CommandType::Start;
+  if (equalsIgnoreCase(normalized, "STOP")) return CommandType::Stop;
+  if (equalsIgnoreCase(normalized, "TELEM ON")) return CommandType::TelemetryOn;
+  if (equalsIgnoreCase(normalized, "TELEM OFF")) return CommandType::TelemetryOff;
+  if (equalsIgnoreCase(normalized, "STATUS")) return CommandType::Status;
+  if (equalsIgnoreCase(normalized, "HELP")) return CommandType::Help;
   return CommandType::Unknown;
 }
