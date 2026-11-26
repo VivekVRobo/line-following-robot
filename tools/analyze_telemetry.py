@@ -23,7 +23,17 @@ def percentile(values,q):
     return values[min(len(values)-1,round((len(values)-1)*q))]
 def metrics(rows,max_pwm=220):
     tracking=[r for r in rows if r['mode']=='TRACK']; errors=[abs(r['error']) for r in tracking]; sat=[r for r in rows if max(abs(r['left']),abs(r['right']))>=max_pwm]; duration=(rows[-1]['ms']-rows[0]['ms'])/1000 if len(rows)>1 else 0.
-    return {'samples':len(rows),'duration_s':round(duration,3),'tracking_ratio':round(len(tracking)/len(rows),4) if rows else 0.,'recovery_ratio':round(1-len(tracking)/len(rows),4) if rows else 0.,'mean_abs_error':round(sum(errors)/len(errors),2) if errors else 0.,'rms_error':round(math.sqrt(sum(e*e for e in errors)/len(errors)),2) if errors else 0.,'p95_abs_error':round(percentile(errors,.95),2),'mean_confidence':round(sum(r['confidence'] for r in tracking)/len(tracking),3) if tracking else 0.,'motor_saturation_ratio':round(len(sat)/len(rows),4) if rows else 0.}
+    recovery_episodes=0; recovery_streak=0; max_recovery_streak=0; previous_mode=None
+    for row in rows:
+        mode=row['mode']
+        if mode=='RECOVER':
+            recovery_streak+=1; max_recovery_streak=max(max_recovery_streak,recovery_streak)
+            if previous_mode!='RECOVER': recovery_episodes+=1
+        else:
+            recovery_streak=0
+        previous_mode=mode
+    sample_dt=(rows[1]['ms']-rows[0]['ms'])/1000 if len(rows)>1 else 0.
+    return {'samples':len(rows),'duration_s':round(duration,3),'tracking_ratio':round(len(tracking)/len(rows),4) if rows else 0.,'recovery_ratio':round(1-len(tracking)/len(rows),4) if rows else 0.,'recovery_episodes':recovery_episodes,'max_recovery_duration_s':round(max_recovery_streak*sample_dt,3),'mean_abs_error':round(sum(errors)/len(errors),2) if errors else 0.,'rms_error':round(math.sqrt(sum(e*e for e in errors)/len(errors)),2) if errors else 0.,'p95_abs_error':round(percentile(errors,.95),2),'mean_confidence':round(sum(r['confidence'] for r in tracking)/len(tracking),3) if tracking else 0.,'motor_saturation_ratio':round(len(sat)/len(rows),4) if rows else 0.}
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('log',type=Path);p.add_argument('--markdown',action='store_true');a=p.parse_args();m=metrics(load(a.log))
     if a.markdown:

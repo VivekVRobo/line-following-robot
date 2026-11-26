@@ -87,6 +87,18 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(metrics["tracking_ratio"], 0.5)
         self.assertEqual(metrics["mean_abs_error"], 10.0)
 
+    def test_telemetry_reports_recovery_episodes(self):
+        rows = [
+            {"ms": 0, "mode": "TRACK", "position": 0.0, "confidence": 1.0, "total": 1000, "error": 0.0, "correction": 0.0, "base": 100, "left": 100, "right": 100, "recovery_phase": 0},
+            {"ms": 50, "mode": "RECOVER", "position": 0.0, "confidence": 0.0, "total": 0, "error": 0.0, "correction": 0.0, "base": 0, "left": 105, "right": -105, "recovery_phase": 1},
+            {"ms": 100, "mode": "RECOVER", "position": 0.0, "confidence": 0.0, "total": 0, "error": 0.0, "correction": 0.0, "base": 0, "left": 105, "right": -105, "recovery_phase": 1},
+            {"ms": 150, "mode": "TRACK", "position": 2.0, "confidence": 0.9, "total": 900, "error": 2.0, "correction": 0.0, "base": 100, "left": 100, "right": 100, "recovery_phase": 0},
+            {"ms": 200, "mode": "RECOVER", "position": 0.0, "confidence": 0.0, "total": 0, "error": 0.0, "correction": 0.0, "base": 0, "left": 105, "right": -105, "recovery_phase": 1},
+        ]
+        metrics = analyze_telemetry.metrics(rows)
+        self.assertEqual(metrics["recovery_episodes"], 2)
+        self.assertAlmostEqual(metrics["max_recovery_duration_s"], 0.1)
+
     def test_regression_gate_evaluation(self):
         metrics = {
             "mean_rms_m": 0.020,
